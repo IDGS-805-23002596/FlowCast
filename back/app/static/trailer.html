@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Tráiler</title>
+    <style>
+        html, body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #reproductor, iframe {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="reproductor"></div>
+    <script>
+        (function () {
+            var parametros = new URLSearchParams(location.search);
+            var id = parametros.get("v") || "";
+            var idioma = parametros.get("idioma") || "";
+            var silencio = parametros.get("silencio") === "1";
+            var reproductor = null;
+            var subtitulosListos = false;
+            var intentosSubtitulos = 0;
+            var ultimo = "";
+            var reemplazos = 0;
+
+            function avisar(estado, extra) {
+                if (estado === ultimo && !extra) {
+                    return;
+                }
+                ultimo = estado;
+                var mensaje = { flowcast: "trailer", estado: estado };
+                for (var clave in extra || {}) {
+                    mensaje[clave] = extra[clave];
+                }
+                parent.postMessage(mensaje, "*");
+            }
+
+            function esEspanol(codigo) {
+                return /^es\b/i.test(codigo || "");
+            }
+
+            function pistas() {
+                try {
+                    return reproductor.getOption("captions", "tracklist") || [];
+                } catch (error) {
+                    return [];
+                }
+            }
+
+            function traducirAutomaticos() {
+                subtitulosListos = true;
+                reproductor.loadModule("captions");
+                reproductor.setOption("captions", "track", {
+                    languageCode: (idioma || "en").toLowerCase(),
+                    kind: "asr",
+                    translationLanguage: { languageCode: "es", languageName: "Español" }
+                });
+                avisar("subtitulos", { subtitulos: "automaticos" });
+            }
+
+            function ponerSubtitulos() {
+                if (subtitulosListos || silencio || esEspanol(idioma)) {
+                    return;
+                }
+                var lista = pistas();
+                if (!lista.length) {
+                    if (intentosSubtitulos++ < 5) {
+                        setTimeout(ponerSubtitulos, 800);
+                    } else {
+                        traducirAutomaticos();
+                    }
+                    return;
+                }
+                subtitulosListos = true;
+                var automatica = lista.filter(function (pista) { return pista.kind === "asr"; })[0];
+                var hablado = automatica ? automatica.languageCode : "";
+                if (!idioma && esEspanol(hablado)) {
+                    reproductor.unloadModule("captions");
+                    avisar("subtitulos", { subtitulos: "" });
+                    return;
+                }
+                var enEspanol = lista.filter(function (pista) { return esEspanol(pista.languageCode) && pista.kind !== "asr"; })[0];
+                if (enEspanol) {
+                    reproductor.setOption("captions", "track", { languageCode: enEspanol.languageCode });
+                    avisar("subtitulos", { subtitulos: "es" });
+                    return;
+                }
+                var base = lista.filter(function (pista) { return pista.kind !== "asr"; })[0] || automatica || lista[0];
+                reproductor.setOption("captions", "track", {
+                    languageCode: base.languageCode,
+                    kind: base.kind,
+                    translationLanguage: { languageCode: "es", languageName: "Español" }
+                });
+                avisar("subtitulos", { subtitulos: "traducidos" });
+            }
+
+            function alFallar(evento) {
+                if (reemplazos++ >= 3 || !window.fetch) {
+                    avisar("error", { codigo: evento.data });
+                    return;
+                }
+                avisar("cargando");
+                fetch("/trailer/fallo?v=" + encodeURIComponent(id) + "&codigo=" + encodeURIComponent(evento.data), { method: "POST" })
+                    .then(function (respuesta) { return respuesta.json(); })
+                    .then(function (datos) {
+                        if (!datos.video_id) {
+                            avisar("error", { codigo: evento.data });
+                            return;
+                        }
+                        id = datos.video_id;
+                        idioma = datos.idioma || "";
+                        subtitulosListos = false;
+                        intentosSubtitulos = 0;
+                        if (esEspanol(idioma)) {
+                            reproductor.unloadModule("captions");
+                        }
+                        reproductor.loadVideoById(id);
+                    })
+                    .catch(function () {
+                        avisar("error", { codigo: evento.data });
+                    });
+            }
+
+            function alCambiar(evento) {
+                var estados = { "-1": "cargando", 0: "terminado", 1: "reproduciendo", 2: "pausado", 3: "cargando" };
+                var estado = estados[evento.data];
+                if (estado) {
+                    avisar(estado);
+                }
+                if (evento.data === 1 && !intentosSubtitulos) {
+                    ponerSubtitulos();
+                }
+            }
+
+            function ordenar(orden) {
+                if (!reproductor || !reproductor.getPlayerState) {
+                    return;
+                }
+                var actual = reproductor.getCurrentTime() || 0;
+                if (orden === "alternar") {
+                    if (reproductor.getPlayerState() === 1) {
+                        reproductor.pauseVideo();
+                    } else {
+                        reproductor.playVideo();
+                    }
+                } else if (orden === "adelantar") {
+                    reproductor.seekTo(actual + 10, true);
+                } else if (orden === "retroceder") {
+                    reproductor.seekTo(Math.max(0, actual - 10), true);
+                }
+            }
+
+            window.addEventListener("message", function (evento) {
+                var datos = evento.data;
+                if (evento.source === parent && datos && datos.flowcast === "trailer" && datos.orden) {
+                    ordenar(datos.orden);
+                }
+            });
+
+            window.onYouTubeIframeAPIReady = function () {
+                reproductor = new YT.Player("reproductor", {
+                    videoId: id,
+                    host: "https://www.youtube.com",
+                    playerVars: {
+                        autoplay: 1,
+                        controls: 0,
+                        disablekb: 1,
+                        fs: 0,
+                        rel: 0,
+                        iv_load_policy: 3,
+                        playsinline: 1,
+                        modestbranding: 1,
+                        cc_load_policy: silencio || esEspanol(idioma) ? 0 : 1,
+                        mute: silencio ? 1 : 0,
+                        cc_lang_pref: "es",
+                        hl: "es",
+                        origin: location.origin
+                    },
+                    events: {
+                        onReady: function (evento) {
+                            if (silencio) {
+                                evento.target.mute();
+                            }
+                            evento.target.playVideo();
+                        },
+                        onStateChange: alCambiar,
+                        onError: alFallar
+                    }
+                });
+            };
+
+            if (!/^[\w-]{11}$/.test(id)) {
+                avisar("error", { codigo: "id" });
+                return;
+            }
+            avisar("cargando");
+            var guion = document.createElement("script");
+            guion.src = "https://www.youtube.com/iframe_api";
+            guion.onerror = function () {
+                avisar("error", { codigo: "api" });
+            };
+            document.head.appendChild(guion);
+        })();
+    </script>
+</body>
+</html>
