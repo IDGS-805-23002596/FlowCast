@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">FlowCast</string>
+    <string name="canal_descargas">Descargas</string>
+    <string name="canal_descargas_descripcion">Progreso de las películas y episodios que se están descargando</string>
+</resources>
