@@ -111,32 +111,6 @@ aplicacion.include_router(deportes.router)
 PAGINA_ADMINISTRACION = Path(__file__).resolve().parent / "static" / "admin.html"
 PAGINA_TRAILER = Path(__file__).resolve().parent / "static" / "trailer.html"
 ARCHIVOS_DE_TELE = Path(__file__).resolve().parent / "static" / "tv"
-ARCHIVOS_LANDING = Path(__file__).resolve().parent.parent / "landing" / "dist"
-
-
-@aplicacion.get("/", include_in_schema=False)
-async def pagina_inicio() -> FileResponse:
-    return FileResponse(ARCHIVOS_LANDING / "index.html")
-
-
-aplicacion.mount(
-    "/landing", StaticFiles(directory=ARCHIVOS_LANDING, html=True, check_dir=False), name="landing"
-)
-aplicacion.mount(
-    "/assets",
-    StaticFiles(directory=ARCHIVOS_LANDING / "assets", check_dir=False),
-    name="landing-assets",
-)
-
-
-@aplicacion.get("/styles.css", include_in_schema=False)
-async def estilos_landing() -> FileResponse:
-    return FileResponse(ARCHIVOS_LANDING / "styles.css")
-
-
-@aplicacion.get("/app.js", include_in_schema=False)
-async def script_landing() -> FileResponse:
-    return FileResponse(ARCHIVOS_LANDING / "app.js", media_type="text/javascript")
 
 
 class ArchivosDeTele(StaticFiles):

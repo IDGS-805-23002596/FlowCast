@@ -4,12 +4,12 @@ FlowCast reúne una API para televisión en vivo, películas, series y música y
 
 | Carpeta | Contenido |
 | --- | --- |
-| [`back/`](back/) | API FastAPI, esquema PostgreSQL, panel de administración y página de presentación. |
+| [`back/`](back/) | API FastAPI, esquema PostgreSQL y panel de administración. |
 | [`front/`](front/) | Aplicación Android en Kotlin con Jetpack Compose y Media3. |
 
 Para levantar la API, sigue las [instrucciones del backend](back/README.md). Para trabajar en Android, abre `front/` en Android Studio y sincroniza Gradle. La URL que consume la app se define como `URL_BASE_API` en [`front/app/build.gradle.kts`](front/app/build.gradle.kts).
 
-Los documentos del diseño preliminar están en [`docs/`](docs/). El esquema vigente está en [`back/db/`](back/db/).
+El esquema vigente está en [`back/db/`](back/db/).
 
 ## Integrantes
 

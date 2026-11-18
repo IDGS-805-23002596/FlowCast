@@ -47,7 +47,6 @@ app/
   schemas/    formatos de entrada y salida
   static/     panel de administración
 db/           esquema de PostgreSQL
-tools/        rutinas: sincronizar plataformas, crear administrador, migraciones
 ```
 
 ## Correr en local
@@ -60,9 +59,8 @@ uv run uvicorn app.main:aplicacion --reload
 
 1. **Base de datos:** crea la base siguiendo [`db/README.md`](db/README.md).
 2. **Configuración:** llena el `.env`.
-3. **Administrador:** créalo con `uv run python -m tools.crear_administrador`.
 
-La API queda en `http://localhost:8000` y el panel en `http://localhost:8000/admin`.
+La salud de la API se consulta en `http://localhost:8000/salud` y el panel en `http://localhost:8000/admin`.
 
 Con `DOCUMENTACION_PUBLICA=true` en el `.env`, la documentación interactiva queda disponible en `/docs`.
 
